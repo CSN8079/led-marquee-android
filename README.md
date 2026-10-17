@@ -4,7 +4,7 @@
 即可在全屏 LED 点阵上滚动播放，适合门迎、展台、车机、平板、手机当电子牌使用。
 
 [![Android](https://img.shields.io/badge/Android-5.0%2B-3DDC84?logo=android&logoColor=white)](https://github.com/CSN8079/led-marquee-android)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/CSN8079/led-marquee-android)](https://github.com/CSN8079/led-marquee-android/releases/latest)
 
 > A red LED dot-matrix scrolling marquee for Android phones & tablets — pure Java, zero dependencies, 19 LED colors.
@@ -210,4 +210,6 @@ node tools/build-apk.js
 
 ## 九、许可证
 
-本项目基于 [MIT License](LICENSE) 开源，可自由修改、商用与二次分发。
+本项目基于 [GNU General Public License v3.0](LICENSE) 开源。
+
+你可以自由使用、修改和再分发本项目（包括商业用途），但**衍生作品必须同样以 GPL-3.0 协议开源**，并保留版权与许可声明。
