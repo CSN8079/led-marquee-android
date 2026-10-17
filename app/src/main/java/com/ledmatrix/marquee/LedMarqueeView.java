@@ -87,6 +87,17 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
         }
     };
 
+    // ---------------------------------------------------------------- 矢量文字
+    private final Paint vectorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint vectorStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private String[] vectorLines = new String[0];
+    private float[] vectorLineWidths = new float[0];
+    private float[] vectorBaselines = new float[0];
+    private float vectorBlockWidth = 0f;
+    private float vectorPeriod = 1f;
+    private float vectorFontPx = 24f;
+    private float vectorScrollPx = 0f;
+
     // ---------------------------------------------------------------- 绘制缓存
     private final Paint ledPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glowDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -214,6 +225,7 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
     /** 回到起点 */
     public void restartScroll() {
         scrollCol = 0f;
+        vectorScrollPx = 0f;
         invalidate();
     }
 
@@ -245,6 +257,7 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
 
     /** 重建点阵与各图层。只在设置变化/旋转时执行，耗时通常在几毫秒量级。 */
     private void rebuild() {
+
         int vw = getWidth();
         int vh = getHeight();
         if (vw <= 0 || vh <= 0) {
@@ -252,15 +265,45 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
             return;
         }
         MarqueeConfig c = config;
+        boolean vector = c.renderMode == 1;
+        if (vector) {
+            prepareVector(vw, vh);
+        } else {
+            buildDotMatrix(vw, vh);
+        }
 
-        List<String> lines = normalizeLines(c.text);
+        // ---- 图层 ----
+        if (!vector) {
+            ensureGlowBitmap(vw, vh);
+            allocPoints();
+        }
+        buildBackground(vw, vh);
+        buildGloss(vw, vh);
+
+        signature = signatureOf(c);
+        needRebuild = false;
+        invalidate();
+    }
+
+    /**
+     * 文字 -> 二值灯珠点阵。
+     *
+     * <p>关键点：以 3 倍超采样绘制字形，再对每个灯珠单元求平均覆盖率并与阈值比较。
+     * 这等价于一次盒式低通滤波 + 二值化，比直接在低分辨率上取阈值更能保住中文笔画。
+     *
+     * @return 一行的点阵数据，索引 = 列 * rows + 行
+     */
+
+    /** LED 点阵模式：把文字光栅化成灯珠点阵，并计算面板几何 */
+    private void buildDotMatrix(int vw, int vh) {
+        MarqueeConfig c = config;
+        java.util.List<String> lines = normalizeLines(c.text);
         int rowsPerLine = clamp(c.rows, ROWS_MIN, ROWS_MAX);
         int gapRows = Math.max(2, rowsPerLine / 5);
         int totalRows = lines.size() * rowsPerLine + (lines.size() - 1) * gapRows;
 
         // 灯珠边长：先让文字高度占满约 88% 的可用高度；
-        // 再保证横向至少能看到约 2.8 个中文字符（中文一个字宽约 0.82*rows 颗灯珠），
-        // 这样手机竖屏、平板横屏都能保持可读的字数与比例。
+        // 再保证横向至少能看到约 2.8 个中文字符（中文一个字宽约 0.82*rows 颗灯珠）。
         int size = (int) Math.floor(vh * 0.88f / totalRows);
         int minCols = Math.max(12, Math.round(rowsPerLine * MIN_COLS_PER_ROW));
         size = Math.min(size, Math.max(3, (int) Math.floor(vw / (float) minCols)));
@@ -304,26 +347,115 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
             cycle = 1;
         }
         scrollCol = scrollCol % cycle;
-
-        // ---- 图层 ----
-        ensureGlowBitmap(vw, vh);
-        buildBackground(vw, vh);
-        buildGloss(vw, vh);
-        allocPoints();
-
-        signature = signatureOf(c);
-        needRebuild = false;
-        invalidate();
     }
 
-    /**
-     * 文字 -> 二值灯珠点阵。
-     *
-     * <p>关键点：以 3 倍超采样绘制字形，再对每个灯珠单元求平均覆盖率并与阈值比较。
-     * 这等价于一次盒式低通滤波 + 二值化，比直接在低分辨率上取阈值更能保住中文笔画。
-     *
-     * @return 一行的点阵数据，索引 = 列 * rows + 行
-     */
+    /** 矢量模式：测量文字尺寸、计算行高与循环周期（不生成点阵） */
+    private void prepareVector(int vw, int vh) {
+        MarqueeConfig c = config;
+        java.util.List<String> lines = normalizeLines(c.text);
+        vectorLines = lines.toArray(new String[0]);
+        int count = vectorLines.length;
+
+        Typeface typeface = TextFonts.typeface(c.fontIndex, c.fontWeight);
+        vectorPaint.setTypeface(typeface);
+        vectorPaint.setStyle(Paint.Style.FILL);
+        vectorPaint.setTextAlign(Paint.Align.LEFT);
+        vectorPaint.setLetterSpacing(clamp(c.letterSpacing, 0, 20) * 0.0125f);
+
+        float size = vh * (clamp(c.textSizePercent, 8, 100) / 100f);
+        float lineFactor = clamp(c.lineSpacing, 10, 22) / 10f;
+        size = Math.max(6f, size);
+        vectorPaint.setTextSize(size);
+
+        Paint.FontMetrics fm = vectorPaint.getFontMetrics();
+        float lineHeight = size * lineFactor;
+        float blockHeight = (count - 1) * lineHeight + (fm.descent - fm.ascent);
+        float maxHeight = vh * 0.94f;
+        if (blockHeight > maxHeight) {
+            // 多行或超大字号时整体等比缩小，保证完整显示
+            size = Math.max(6f, size * maxHeight / blockHeight);
+            vectorPaint.setTextSize(size);
+            fm = vectorPaint.getFontMetrics();
+            lineHeight = size * lineFactor;
+            blockHeight = (count - 1) * lineHeight + (fm.descent - fm.ascent);
+        }
+        vectorFontPx = size;
+        vectorBaselines = new float[count];
+        float top = (vh - blockHeight) / 2f;
+        for (int i = 0; i < count; i++) {
+            vectorBaselines[i] = top - fm.ascent + i * lineHeight;
+        }
+
+        vectorLineWidths = new float[count];
+        float maxWidth = 1f;
+        for (int i = 0; i < count; i++) {
+            float w = vectorPaint.measureText(vectorLines[i]);
+            vectorLineWidths[i] = w;
+            if (w > maxWidth) {
+                maxWidth = w;
+            }
+        }
+        vectorBlockWidth = maxWidth;
+        vectorPeriod = vectorBlockWidth + size * 1.4f;
+        if (vectorPeriod <= 1f) {
+            vectorPeriod = 1f;
+        }
+        vectorScrollPx = vectorScrollPx % vectorPeriod;
+    }
+
+    /** 矢量模式：用真实字体绘制（抗锯齿），可选发光与描边 */
+    private void drawVectorText(Canvas canvas, int vw, LedPalette.LedColor palette,
+                                float brightness) {
+        if (vectorLines.length == 0 || vectorBlockWidth <= 0f) {
+            return;
+        }
+        int textColor = scaleColor(palette.led, brightness);
+        int rimColor = scaleColor(palette.glow, Math.min(1.45f, brightness + 0.15f));
+
+        vectorPaint.setColor(textColor);
+        vectorStrokePaint.setTypeface(vectorPaint.getTypeface());
+        vectorStrokePaint.setTextSize(vectorFontPx);
+        vectorStrokePaint.setLetterSpacing(vectorPaint.getLetterSpacing());
+        vectorStrokePaint.setStyle(Paint.Style.STROKE);
+        vectorStrokePaint.setStrokeWidth(Math.max(1f, vectorFontPx * 0.035f));
+        vectorStrokePaint.setColor(rimColor);
+
+        if (config.textGlow) {
+            int alpha = clamp((int) (150 * Math.min(1f, brightness)), 24, 220);
+            vectorPaint.setShadowLayer(vectorFontPx * 0.14f, 0f, 0f,
+                    Color.argb(alpha, Color.red(palette.glow),
+                            Color.green(palette.glow), Color.blue(palette.glow)));
+        } else {
+            vectorPaint.clearShadowLayer();
+        }
+
+        float period = vectorPeriod;
+        float baseX = (config.direction == 0) ? -vectorScrollPx : (vectorScrollPx - period);
+        baseX = baseX % period;
+        if (baseX > 0f) {
+            baseX -= period;
+        }
+
+        int copies = (int) Math.ceil(vw / period) + 2;
+        for (int k = 0; k < copies; k++) {
+            float bx = baseX + k * period;
+            if (bx > vw) {
+                break;
+            }
+            if (bx + vectorBlockWidth < 0f) {
+                continue;
+            }
+            for (int i = 0; i < vectorLines.length; i++) {
+                float lx = bx + (vectorBlockWidth - vectorLineWidths[i]) / 2f;
+                if (config.textOutline) {
+                    canvas.drawText(vectorLines[i], lx, vectorBaselines[i], vectorStrokePaint);
+                }
+                canvas.drawText(vectorLines[i], lx, vectorBaselines[i], vectorPaint);
+            }
+        }
+        vectorPaint.clearShadowLayer();
+    }
+
     private GlyphBand rasterizeLine(String line, int rows, int threshold) {
         int ss = SUPERSAMPLE;
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -458,7 +590,7 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
         Canvas canvas = new Canvas(bmp);
         canvas.drawColor(mix(PANEL_BASE, palette.led, 0.10f));
 
-        if (c.showUnlit) {
+        if (c.showUnlit && c.renderMode == 0) {
             Bitmap tile = makeDotTile(led, palette.led, c.ledNoise);
             Paint paint = new Paint();
             BitmapShader shader = new BitmapShader(tile, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT);
@@ -471,7 +603,7 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
             tile.recycle();
         }
 
-        if (c.moduleGrid) {
+        if (c.moduleGrid && c.renderMode == 0) {
             Paint gridPaint = new Paint();
             gridPaint.setColor(Color.BLACK);
             gridPaint.setAlpha(110);
@@ -599,6 +731,7 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
 
     @Override
     protected void onDraw(Canvas canvas) {
+
         super.onDraw(canvas);
         int vw = getWidth();
         int vh = getHeight();
@@ -608,11 +741,13 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
         if (needRebuild) {
             rebuild();
         }
-        if (lit.length == 0 || panelCols <= 0 || panelRows <= 0) {
+
+        MarqueeConfig c = config;
+        boolean vector = c.renderMode == 1;
+        if (!vector && (lit.length == 0 || panelCols <= 0 || panelRows <= 0)) {
             return;
         }
 
-        MarqueeConfig c = config;
         LedPalette.LedColor palette = LedPalette.of(c.colorIndex);
         float brightness = clamp(c.brightness, MIN_BRIGHTNESS, MAX_BRIGHTNESS) / 100f;
 
@@ -625,12 +760,15 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
             canvas.drawBitmap(bgBitmap, 0f, 0f, bgPaint);
         }
 
-        collectPoints();
-
-        if (c.glow) {
-            drawGlow(canvas, palette, brightness);
+        if (vector) {
+            drawVectorText(canvas, vw, palette, brightness);
+        } else {
+            collectPoints();
+            if (c.glow) {
+                drawGlow(canvas, palette, brightness);
+            }
+            drawLeds(canvas, palette, brightness);
         }
-        drawLeds(canvas, palette, brightness);
 
         if (c.gloss && glossShader != null) {
             glossPaint.setShader(glossShader);
@@ -716,6 +854,7 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
 
     @Override
     public void doFrame(long frameTimeNanos) {
+
         framePosted = false;
         if (!scrolling || !isAttachedToWindow()) {
             return;
@@ -725,9 +864,18 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
                 : (frameTimeNanos - lastFrameNanos) / 1000000000f;
         lastFrameNanos = frameTimeNanos;
         if (dt > 0f && dt < 0.2f) {
-            scrollCol += config.speed * dt;
-            // 防止长时间运行后浮点精度下降
-            scrollCol = scrollCol % cycle;
+            if (config.renderMode == 1) {
+                // 矢量模式：以「字高 / rows」作为一列，速度和点阵模式手感一致
+                float unit = vectorFontPx / Math.max(1, config.rows);
+                vectorScrollPx += config.speed * unit * dt;
+                if (vectorPeriod > 1f) {
+                    vectorScrollPx %= vectorPeriod;
+                }
+            } else {
+                scrollCol += config.speed * dt;
+                // 防止长时间运行后浮点精度下降
+                scrollCol = scrollCol % cycle;
+            }
         }
         invalidate();
         scheduleFrame();
@@ -736,8 +884,11 @@ public class LedMarqueeView extends View implements Choreographer.FrameCallback 
     // ------------------------------------------------------------ 工具
 
     private String signatureOf(MarqueeConfig c) {
+
         return c.text + '|' + c.rows + '|' + c.strokeWeight + '|' + c.colorIndex + '|'
                 + c.showUnlit + '|' + c.ledNoise + '|' + c.moduleGrid + '|' + c.gloss + '|'
+                + c.renderMode + '|' + c.fontIndex + '|' + c.fontWeight + '|'
+                + c.textSizePercent + '|' + c.letterSpacing + '|' + c.lineSpacing + '|'
                 + getWidth() + '|' + getHeight();
     }
 

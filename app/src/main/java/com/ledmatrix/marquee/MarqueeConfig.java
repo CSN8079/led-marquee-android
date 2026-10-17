@@ -27,6 +27,14 @@ public class MarqueeConfig {
     private static final String K_KEEPON = "keepon";
     private static final String K_TAPPAUSE = "tappause";
     private static final String K_ORIENT = "orient";
+    private static final String K_MODE = "mode";
+    private static final String K_FONT = "font";
+    private static final String K_FONTSTYLE = "fontstyle";
+    private static final String K_TEXTSIZE = "textsize";
+    private static final String K_TRACKING = "tracking";
+    private static final String K_LINEGAP = "linegap";
+    private static final String K_TEXTGLOW = "textglow";
+    private static final String K_OUTLINE = "outline";
 
     /** 字幕文本，可用 \n 换行（最多 6 行） */
     public String text = DEFAULT_TEXT;
@@ -79,6 +87,30 @@ public class MarqueeConfig {
     /** 全屏方向：0 跟随系统，1 竖屏，2 横屏 */
     public int orientation = 0;
 
+    /** 渲染方式：0 = LED 点阵，1 = 矢量文字 */
+    public int renderMode = 0;
+
+    /** 矢量模式字体，索引见 {@link TextFonts} */
+    public int fontIndex = 0;
+
+    /** 矢量模式字形：0 常规，1 粗体，2 斜体，3 粗斜体 */
+    public int fontWeight = 0;
+
+    /** 矢量模式字号（占屏幕高度的百分比） */
+    public int textSizePercent = 42;
+
+    /** 字间距：0 ~ 20 级（每级 0.0125 em） */
+    public int letterSpacing = 0;
+
+    /** 行距：10 ~ 22（乘 0.1 倍字号） */
+    public int lineSpacing = 12;
+
+    /** 文字发光（矢量模式） */
+    public boolean textGlow = true;
+
+    /** 文字描边（矢量模式） */
+    public boolean textOutline = false;
+
     /** 用另一份配置覆盖本对象；keepText = true 时保留当前文本 */
     public void copyFrom(MarqueeConfig other, boolean keepText) {
         String currentText = text;
@@ -98,6 +130,14 @@ public class MarqueeConfig {
         keepScreenOn = other.keepScreenOn;
         tapPause = other.tapPause;
         orientation = other.orientation;
+        renderMode = other.renderMode;
+        fontIndex = other.fontIndex;
+        fontWeight = other.fontWeight;
+        textSizePercent = other.textSizePercent;
+        letterSpacing = other.letterSpacing;
+        lineSpacing = other.lineSpacing;
+        textGlow = other.textGlow;
+        textOutline = other.textOutline;
         text = keepText ? currentText : other.text;
     }
 
@@ -122,6 +162,14 @@ public class MarqueeConfig {
         keepScreenOn = p.getBoolean(K_KEEPON, true);
         tapPause = p.getBoolean(K_TAPPAUSE, true);
         orientation = p.getInt(K_ORIENT, 0);
+        renderMode = p.getInt(K_MODE, 0);
+        fontIndex = p.getInt(K_FONT, 0);
+        fontWeight = p.getInt(K_FONTSTYLE, 0);
+        textSizePercent = p.getInt(K_TEXTSIZE, 42);
+        letterSpacing = p.getInt(K_TRACKING, 0);
+        lineSpacing = p.getInt(K_LINEGAP, 12);
+        textGlow = p.getBoolean(K_TEXTGLOW, true);
+        textOutline = p.getBoolean(K_OUTLINE, false);
     }
 
     public void save(SharedPreferences p) {
@@ -143,6 +191,14 @@ public class MarqueeConfig {
                 .putBoolean(K_KEEPON, keepScreenOn)
                 .putBoolean(K_TAPPAUSE, tapPause)
                 .putInt(K_ORIENT, orientation)
+                .putInt(K_MODE, renderMode)
+                .putInt(K_FONT, fontIndex)
+                .putInt(K_FONTSTYLE, fontWeight)
+                .putInt(K_TEXTSIZE, textSizePercent)
+                .putInt(K_TRACKING, letterSpacing)
+                .putInt(K_LINEGAP, lineSpacing)
+                .putBoolean(K_TEXTGLOW, textGlow)
+                .putBoolean(K_OUTLINE, textOutline)
                 .apply();
     }
 

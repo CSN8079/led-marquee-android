@@ -14,7 +14,8 @@
 *展示图参数：点阵字高 40 行 · 关闭辉光 · 显示未点亮灯珠*
 
 - **纯 Java + Android Framework**，零第三方依赖（无 AndroidX / Kotlin / Material）
-- 安装包仅 **约 206 KB**，冷启动快、兼容 Android 5.0 ~ 14
+- 安装包仅 **约 210 KB**，冷启动快、兼容 Android 5.0 ~ 14
+- **两种渲染模式**：仿 LED 点阵（灯珠颗粒感）/ 矢量文字（真实字体、抗锯齿平滑）
 - 所有参数 **实时预览**，手机与平板自动适配
 
 ---
@@ -23,8 +24,8 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 最新版本 | **v1.1**（versionCode 2，可覆盖安装 v1.0） |
-| 下载 | [**Releases → LED-Marquee-v1.1.apk**](https://github.com/CSN8079/led-marquee-android/releases/latest) |
+| 最新版本 | **v1.2**（versionCode 3，可覆盖安装旧版） |
+| 下载 | [**Releases → LED-Marquee-v1.2.apk**](https://github.com/CSN8079/led-marquee-android/releases/latest) |
 | 签名 | v1 + v2 + v3 均已校验通过（自签名，供个人安装） |
 | 应用包名 | `com.ledmatrix.marquee` |
 | 最低系统 | Android 5.0（API 21） |
@@ -62,6 +63,7 @@
 
 | 参数 | 说明 |
 | --- | --- |
+| 渲染方式 | **点阵 LED**（默认）/ **矢量文字**（真实字体、抗锯齿，可调字号/字体/字形等） |
 | 字幕文本 | 最多 6 行；换行后每行独立成一条点阵行带 |
 | 灯珠颜色 | 内置 **19 种**，设置页为可视化色板，点圆点即选 |
 | 点阵字高 | 8 / 12 / 16 / 20 / 24 / 32 / 40 行灯珠。越高越细腻、可见字数越多 |
@@ -69,6 +71,23 @@
 | 亮度 | 15% ~ 160% |
 | 滚动方向 | 从右向左（默认）/ 从左向右 |
 | 滚动方式 | 灯珠步进（默认，真实 LED 板一格一格走）/ 平滑移动 |
+
+### 矢量文字参数（渲染方式 = 矢量文字）
+
+![矢量文字模式](docs/vector-preview.png)
+
+| 参数 | 说明 |
+| --- | --- |
+| 字号 | 占屏幕高度的 8% ~ 100%（多行或超大时会自动等比缩小，保证完整显示） |
+| 字体 | 默认黑体 / 细体 / 窄体 / 粗黑 / 衬线体 / 等宽体 / 手写体（下拉选项直接用对应字体预览） |
+| 字形 | 常规 / 粗体 / 斜体 / 粗斜体 |
+| 字间距 | 0 ~ 20 级（每级 0.0125 em） |
+| 行距 | 1.0 ~ 2.2 倍字号 |
+| 文字发光 | 开 / 关（柔光晕） |
+| 文字描边 | 开 / 关（同色系亮边） |
+
+> 矢量模式与点阵模式共用滚动方向、速度、亮度、颜色、镜像、屏幕方向等设置；
+> 切换「渲染方式」后，设置页会自动显示对应的参数组。
 
 ### LED 灯板效果
 
@@ -143,6 +162,7 @@
 │  │  ├─ DisplayActivity.java   全屏播放页（沉浸式 + 快捷控制条）
 │  │  ├─ LedMarqueeView.java    LED 点阵渲染核心
 │  │  ├─ MarqueeConfig.java     参数模型与持久化
+│  │  ├─ TextFonts.java         矢量模式字体族
 │  │  ├─ LedPalette.java        灯珠配色表
 │  │  └─ Prefs.java             SharedPreferences / 预设存储
 │  └─ res/                      主题、颜色、启动图标（含自适应图标）
@@ -153,9 +173,10 @@
 │  ├─ inspect-apk.js            APK 产物自检
 │  ├─ ziplib.js                 极简 ZIP 读写
 │  └─ preview/LedPreview.java   桌面端点阵效果预览渲染
-├─ docs/preview.png             效果预览图
+├─ docs/preview.png             效果预览图（点阵模式）
+├─ docs/vector-preview.png      矢量文字模式效果图
 ├─ docs/colors.png              19 种配色一览
-├─ LICENSE                      MIT 许可证
+├─ LICENSE                      GPL-3.0 许可证
 ├─ CHANGELOG.md                 更新日志
 └─ dist/                        本地构建输出（已在 .gitignore 中忽略）
 ```

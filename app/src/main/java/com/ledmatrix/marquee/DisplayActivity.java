@@ -184,12 +184,14 @@ public class DisplayActivity extends Activity {
                 changeBrightness(10);
             }
         }));
-        row.addView(barButton("平滑", new Runnable() {
-            @Override
-            public void run() {
-                toggleSmooth();
-            }
-        }));
+        if (config.renderMode == 0) {
+            row.addView(barButton("平滑", new Runnable() {
+                @Override
+                public void run() {
+                    toggleSmooth();
+                }
+            }));
+        }
         row.addView(barButton("回到开头", new Runnable() {
             @Override
             public void run() {

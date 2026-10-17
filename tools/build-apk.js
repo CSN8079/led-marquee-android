@@ -26,7 +26,7 @@ const ROOT = path.join(__dirname, '..');
 const APP = path.join(ROOT, 'app', 'src', 'main');
 const DIST = path.join(ROOT, 'dist');
 
-const APP_VERSION = '1.1';
+const APP_VERSION = '1.2';
 const APK_NAME = 'LED滚动字幕-v' + APP_VERSION + '.apk';
 const MIN_SDK = '21';
 const TARGET_SDK = '34';
@@ -153,7 +153,7 @@ function build() {
     '--java', path.join(WORK, 'gen'),
     '--min-sdk-version', MIN_SDK,
     '--target-sdk-version', TARGET_SDK,
-    '--version-code', '2',
+    '--version-code', '3',
     '--version-name', APP_VERSION,
     resZip
   ]);

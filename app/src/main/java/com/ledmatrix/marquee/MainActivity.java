@@ -60,6 +60,9 @@ public class MainActivity extends Activity {
     private EditText textInput;
     private TextView hintView;
     private Spinner presetSpinner;
+    private LinearLayout ledGroup;
+    private LinearLayout vectorGroup;
+    private LinearLayout target;
     private final ArrayList<View> colorSwatches = new ArrayList<>();
     private TextView colorNameView;
     private int contentWidthPx;
@@ -125,6 +128,7 @@ public class MainActivity extends Activity {
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(16), dp(20), dp(16), dp(28));
+        target = content;
 
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
         int contentWidth = Math.min(screenWidth - dp(24), dp(760));
@@ -140,7 +144,6 @@ public class MainActivity extends Activity {
         addStartButton();
         addPresetSection();
         addDisplaySection();
-        addLedSection();
         addBehaviorSection();
         addFooter();
         return scroll;
@@ -362,34 +365,24 @@ public class MainActivity extends Activity {
     private void addDisplaySection() {
         addSection("显示参数");
 
-        addColorRow();
+        addSpinnerRow("渲染方式", new String[]{"点阵 LED", "矢量文字"}, config.renderMode,
+                new IntCallback() {
+                    @Override
+                    public void onValue(int value) {
+                        config.renderMode = value;
+                        updateModeVisibility();
+                        preview.submit();
+                        scheduleSave();
+                    }
+                });
 
-        int rowIndex = indexOfRowOption(config.rows);
-        addSpinnerRow("点阵字高", rowOptions(), rowIndex >= 0 ? rowIndex : 4, new IntCallback() {
-            @Override
-            public void onValue(int value) {
-                config.rows = ROW_OPTIONS[value];
-                preview.submit();
-                scheduleSave();
-                updateCjkHint();
-            }
-        });
+        addColorRow();
 
         addSpinnerRow("滚动方向", new String[]{"从右向左", "从左向右"}, config.direction,
                 new IntCallback() {
                     @Override
                     public void onValue(int value) {
                         config.direction = value;
-                        preview.submit();
-                        scheduleSave();
-                    }
-                });
-
-        addSpinnerRow("滚动方式", new String[]{"灯珠步进（真实 LED 感）", "平滑移动"},
-                config.smooth ? 1 : 0, new IntCallback() {
-                    @Override
-                    public void onValue(int value) {
-                        config.smooth = value == 1;
                         preview.submit();
                         scheduleSave();
                     }
@@ -413,10 +406,55 @@ public class MainActivity extends Activity {
                 scheduleSave();
             }
         });
+
+        addSwitchRow("玻璃反光", config.gloss, new BoolCallback() {
+            @Override
+            public void onValue(boolean value) {
+                config.gloss = value;
+                preview.submit();
+                scheduleSave();
+            }
+        });
+
+        addModeGroups();
     }
 
-    private void addLedSection() {
-        addSection("LED 灯板效果");
+    /** 点阵 / 矢量两种模式各自的效果参数，按当前模式显示或隐藏 */
+    private void addModeGroups() {
+        ledGroup = new LinearLayout(this);
+        ledGroup.setOrientation(LinearLayout.VERTICAL);
+        target = ledGroup;
+        addSection("点阵效果");
+
+        int rowIndex = indexOfRowOption(config.rows);
+        addSpinnerRow("点阵字高", rowOptions(), rowIndex >= 0 ? rowIndex : 4, new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                config.rows = ROW_OPTIONS[value];
+                preview.submit();
+                scheduleSave();
+                updateCjkHint();
+            }
+        });
+
+        addSpinnerRow("滚动方式", new String[]{"灯珠步进（真实 LED 感）", "平滑移动"},
+                config.smooth ? 1 : 0, new IntCallback() {
+                    @Override
+                    public void onValue(int value) {
+                        config.smooth = value == 1;
+                        preview.submit();
+                        scheduleSave();
+                    }
+                });
+
+        addSeekRow("笔画粗细", 1, 5, clamp(config.strokeWeight, 1, 5), " 级", new IntCallback() {
+            @Override
+            public void onValue(int value) {
+                config.strokeWeight = value;
+                preview.submit();
+                scheduleSave();
+            }
+        });
 
         addSwitchRow("灯光辉光", config.glow, new BoolCallback() {
             @Override
@@ -450,22 +488,136 @@ public class MainActivity extends Activity {
                 scheduleSave();
             }
         });
-        addSwitchRow("玻璃反光", config.gloss, new BoolCallback() {
+
+        target = content;
+        content.addView(ledGroup);
+
+        vectorGroup = new LinearLayout(this);
+        vectorGroup.setOrientation(LinearLayout.VERTICAL);
+        target = vectorGroup;
+        addSection("文字效果（矢量）");
+
+        addFontRow();
+
+        addSeekRow("字号（占屏高）", 8, 100, clamp(config.textSizePercent, 8, 100), "%",
+                new IntCallback() {
+                    @Override
+                    public void onValue(int value) {
+                        config.textSizePercent = value;
+                        preview.submit();
+                        scheduleSave();
+                    }
+                });
+
+        addSpinnerRow("字形", new String[]{"常规", "粗体", "斜体", "粗斜体"}, config.fontWeight,
+                new IntCallback() {
+                    @Override
+                    public void onValue(int value) {
+                        config.fontWeight = value;
+                        preview.submit();
+                        scheduleSave();
+                    }
+                });
+
+        addSeekRow("字间距", 0, 20, clamp(config.letterSpacing, 0, 20), " 级",
+                new IntCallback() {
+                    @Override
+                    public void onValue(int value) {
+                        config.letterSpacing = value;
+                        preview.submit();
+                        scheduleSave();
+                    }
+                });
+
+        addSeekRow("行距", 10, 22, clamp(config.lineSpacing, 10, 22), " ×0.1",
+                new IntCallback() {
+                    @Override
+                    public void onValue(int value) {
+                        config.lineSpacing = value;
+                        preview.submit();
+                        scheduleSave();
+                    }
+                });
+
+        addSwitchRow("文字发光", config.textGlow, new BoolCallback() {
             @Override
             public void onValue(boolean value) {
-                config.gloss = value;
+                config.textGlow = value;
                 preview.submit();
                 scheduleSave();
             }
         });
-        addSeekRow("笔画粗细", 1, 5, clamp(config.strokeWeight, 1, 5), " 级", new IntCallback() {
+        addSwitchRow("文字描边", config.textOutline, new BoolCallback() {
             @Override
-            public void onValue(int value) {
-                config.strokeWeight = value;
+            public void onValue(boolean value) {
+                config.textOutline = value;
                 preview.submit();
                 scheduleSave();
             }
         });
+
+        target = content;
+        content.addView(vectorGroup);
+
+        updateModeVisibility();
+    }
+
+    /** 字体下拉：每个选项用对应字体渲染，选之前就能看到效果 */
+    private void addFontRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(labelView("字体"), new LinearLayout.LayoutParams(0, WRAP, 1f));
+
+        Spinner spinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_item, TextFonts.NAMES) {
+            @Override
+            public View getView(int position, View convertView, ViewGroup parent) {
+                TextView text = (TextView) super.getView(position, convertView, parent);
+                text.setTypeface(TextFonts.typeface(position, Typeface.NORMAL));
+                text.setTextSize(16f);
+                return text;
+            }
+
+            @Override
+            public View getDropDownView(int position, View convertView, ViewGroup parent) {
+                TextView text = (TextView) super.getDropDownView(position, convertView, parent);
+                text.setTypeface(TextFonts.typeface(position, Typeface.NORMAL));
+                text.setTextSize(17f);
+                return text;
+            }
+        };
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(clamp(config.fontIndex, 0, TextFonts.NAMES.length - 1));
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                config.fontIndex = position;
+                preview.submit();
+                scheduleSave();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        lp.leftMargin = dp(10);
+        row.addView(spinner, lp);
+        addRow(row);
+    }
+
+    private void updateModeVisibility() {
+        boolean vector = config.renderMode == 1;
+        if (ledGroup != null) {
+            ledGroup.setVisibility(vector ? View.GONE : View.VISIBLE);
+        }
+        if (vectorGroup != null) {
+            vectorGroup.setVisibility(vector ? View.VISIBLE : View.GONE);
+        }
+        updateCjkHint();
     }
 
     private void addBehaviorSection() {
@@ -518,7 +670,7 @@ public class MainActivity extends Activity {
         view.setLineSpacing(dp(3), 1f);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(WRAP, WRAP);
         lp.topMargin = dp(24);
-        content.addView(view, lp);
+        target.addView(view, lp);
     }
 
     // ------------------------------------------------------------ 行部件
@@ -532,13 +684,13 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(WRAP, WRAP);
         lp.topMargin = dp(26);
         lp.bottomMargin = dp(2);
-        content.addView(view, lp);
+        target.addView(view, lp);
     }
 
     private void addRow(View view) {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP);
         lp.topMargin = dp(10);
-        content.addView(view, lp);
+        target.addView(view, lp);
     }
 
     private TextView labelView(String text) {
@@ -782,7 +934,7 @@ public class MainActivity extends Activity {
     }
 
     private void updateCjkHint() {
-        if (MarqueeConfig.hasCjk(config.text) && config.rows < 20) {
+        if (config.renderMode == 0 && MarqueeConfig.hasCjk(config.text) && config.rows < 20) {
             hintView.setText("检测到中文：建议把「点阵字高」调到 20 行以上，笔画更清晰易读");
             hintView.setVisibility(View.VISIBLE);
         } else {
