@@ -26,13 +26,15 @@ import javax.imageio.ImageIO;
  */
 public final class ColorPalettePreview {
 
-    private static final int COLS = 5;
-    private static final int TILE_W = 360;
-    private static final int PANEL_H = 180;
-    private static final int TILE_H = 246;
-    private static final int GAP = 22;
+    private static final int COLS = 4;
+    private static final int TILE_W = 520;
+    private static final int PANEL_H = 300;
+    private static final int TILE_H = 352;
+    private static final int GAP = 20;
     private static final int HEADER = 74;
-    private static final int ROWS = 16;
+    /** 与 README 展示图一致：点阵字高 40 行、关闭辉光、显示未点亮灯珠 */
+    private static final int ROWS = 40;
+    private static final boolean GLOW = false;
     private static final int SS = 3;
 
     private static final class Entry {
@@ -121,31 +123,33 @@ public final class ColorPalettePreview {
             }
         }
 
-        // 辉光（1/8 分辨率 + 双线性放大）
-        int div = 8;
-        BufferedImage glow = new BufferedImage(Math.max(1, TILE_W / div),
-                Math.max(1, PANEL_H / div), BufferedImage.TYPE_INT_ARGB);
-        Graphics2D gg = glow.createGraphics();
-        gg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        double s = (double) glow.getWidth() / TILE_W;
-        gg.scale(s, s);
-        gg.translate(-x, -y);
-        gg.setColor(new Color(r, gr, b, 170));
-        float glowR = led * 2.7f * 0.5f;
-        for (int c = 0; c < cols; c++) {
-            for (int row = 0; row < ROWS; row++) {
-                if (!bits[c][row]) {
-                    continue;
+        // 辉光（1/8 分辨率 + 双线性放大；GLOW = false 时关闭）
+        if (GLOW) {
+            int div = 8;
+            BufferedImage glow = new BufferedImage(Math.max(1, TILE_W / div),
+                    Math.max(1, PANEL_H / div), BufferedImage.TYPE_INT_ARGB);
+            Graphics2D gg = glow.createGraphics();
+            gg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            double s = (double) glow.getWidth() / TILE_W;
+            gg.scale(s, s);
+            gg.translate(-x, -y);
+            gg.setColor(new Color(r, gr, b, 170));
+            float glowR = led * 2.7f * 0.5f;
+            for (int c = 0; c < cols; c++) {
+                for (int row = 0; row < ROWS; row++) {
+                    if (!bits[c][row]) {
+                        continue;
+                    }
+                    float cx = originX + c * led;
+                    float cy = originY + row * led;
+                    gg.fill(new Ellipse2D.Float(cx - glowR, cy - glowR, glowR * 2, glowR * 2));
                 }
-                float cx = originX + c * led;
-                float cy = originY + row * led;
-                gg.fill(new Ellipse2D.Float(cx - glowR, cy - glowR, glowR * 2, glowR * 2));
             }
+            gg.dispose();
+            panel.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            panel.drawImage(glow, x, y, TILE_W, PANEL_H, null);
         }
-        gg.dispose();
-        panel.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        panel.drawImage(glow, x, y, TILE_W, PANEL_H, null);
 
         // 灯珠本体
         panel.setStroke(new BasicStroke(led * 0.80f, BasicStroke.CAP_ROUND,
