@@ -11,6 +11,8 @@
 
 ![LED 点阵效果](docs/preview.png)
 
+*展示图参数：点阵字高 40 行 · 关闭辉光 · 显示未点亮灯珠*
+
 - **纯 Java + Android Framework**，零第三方依赖（无 AndroidX / Kotlin / Material）
 - 安装包仅 **约 206 KB**，冷启动快、兼容 Android 5.0 ~ 14
 - 所有参数 **实时预览**，手机与平板自动适配

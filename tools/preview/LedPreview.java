@@ -24,7 +24,9 @@ import javax.imageio.ImageIO;
 public final class LedPreview {
 
     private static final int W = 2880;
-    private static final int H = 520;
+    private static final int H = 900;
+    /** 展示图参数：辉光关闭、显示未点亮灯珠、点阵字高 40 行 */
+    private static final boolean GLOW = false;
     private static final int SS = 3;
     private static final float GLYPH_FILL = 0.82f;
     private static final float DOT_RATIO = 0.80f;
@@ -37,11 +39,11 @@ public final class LedPreview {
     public static void main(String[] args) throws Exception {
         String out = args.length > 0 ? args[0] : "docs/preview.png";
         String[] lines = {
-                "欢迎光临  ·  LED 点阵滚动字幕",
-                "HELLO  LED  MATRIX  0123456789"
+                "欢迎光临  ·  LED 字幕",
+                "LED  MATRIX"
         };
-        int rowsPerLine = 24;
-        int gapRows = 4;
+        int rowsPerLine = 40;
+        int gapRows = 8;
         int totalRows = lines.length * rowsPerLine + (lines.length - 1) * gapRows;
 
         int led = Math.max(3, (int) Math.floor(H * 0.88 / totalRows));
@@ -91,28 +93,30 @@ public final class LedPreview {
             }
         }
 
-        // 辉光层：1/8 分辨率 + 双线性放大
-        int div = 8;
-        BufferedImage glow = new BufferedImage(W / div, H / div, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D gg = glow.createGraphics();
-        gg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        gg.scale(1.0 / div, 1.0 / div);
-        gg.setColor(new Color(GLOW_R, GLOW_G, GLOW_B, 170));
-        float glowR = led * 2.7f * 0.5f;
-        for (int col = 0; col < panelCols; col++) {
-            for (int row = 0; row < totalRows; row++) {
-                if (col >= stripCols || !lit[col * totalRows + row]) {
-                    continue;
+        // 辉光层：1/8 分辨率 + 双线性放大（GLOW = false 时整体跳过）
+        if (GLOW) {
+            int div = 8;
+            BufferedImage glow = new BufferedImage(W / div, H / div, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D gg = glow.createGraphics();
+            gg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            gg.scale(1.0 / div, 1.0 / div);
+            gg.setColor(new Color(GLOW_R, GLOW_G, GLOW_B, 170));
+            float glowR = led * 2.7f * 0.5f;
+            for (int col = 0; col < panelCols; col++) {
+                for (int row = 0; row < totalRows; row++) {
+                    if (col >= stripCols || !lit[col * totalRows + row]) {
+                        continue;
+                    }
+                    float cx = originX + col * led;
+                    float cy = originY + row * led;
+                    gg.fill(new java.awt.geom.Ellipse2D.Float(cx - glowR, cy - glowR, glowR * 2, glowR * 2));
                 }
-                float cx = originX + col * led;
-                float cy = originY + row * led;
-                gg.fill(new java.awt.geom.Ellipse2D.Float(cx - glowR, cy - glowR, glowR * 2, glowR * 2));
             }
+            gg.dispose();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.drawImage(glow, 0, 0, W, H, null);
         }
-        gg.dispose();
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        g.drawImage(glow, 0, 0, W, H, null);
 
         // 灯珠本体
         g.setStroke(new BasicStroke(led * DOT_RATIO, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
